@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Your Name","email":"your.email@example.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/hierarchyVisual6AFF1A11D3294398B2B7532DDDEEFAEF.pbiviz.json"
+			}
+		],
+		"visual": {"name":"hierarchyVisual","displayName":"HierarchyVisual","guid":"hierarchyVisual6AFF1A11D3294398B2B7532DDDEEFAEF","visualClassName":"Visual","version":"1.0.0.0","description":"A hierarchy visual with grouping, display values, and expand/collapse support.","supportUrl":"https://your-support-url.com","gitHubUrl":""},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}

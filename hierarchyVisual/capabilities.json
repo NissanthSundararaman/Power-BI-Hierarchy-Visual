@@ -1,0 +1,81 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Parent ID",
+            "name": "parentid",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Child ID",
+            "name": "childid",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Display Value",
+            "name": "displayvalue",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Data Field",
+            "name": "datafield",
+            "kind": "Grouping"
+        }
+    ],
+    "objects": {
+        "dataPoint": {
+            "properties": {
+                "defaultColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "showAllDataPoints": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "fill": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "fillRule": {
+                    "type": {
+                        "fill": {}
+                    }
+                },
+                 "fontSize": {
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "categorical": {
+                "categories": {
+                    "select": [
+                        { "for": { "in": "parentid" } },
+                        { "for": { "in": "childid" } },
+                        { "for": { "in": "displayvalue" } },
+                        { "for": { "in": "datafield" } }
+                    ],
+                    "dataReductionAlgorithm": { "top": {} }
+                }
+            }
+        }
+    ],
+    "privileges": []
+}
