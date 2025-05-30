@@ -40,13 +40,16 @@ export class Visual implements IVisual {
     private formattingSettings: VisualFormattingSettingsModel;
     private formattingSettingsService: FormattingSettingsService;
     private columnWidths: number[] | null = null; // Persist column widths across renders
+    private host: powerbi.extensibility.visual.IVisualHost;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.target = options.element;
+        this.host = options.host;
     }
 
     public update(options: VisualUpdateOptions) {
+        console.log("Visual update called", this.formattingSettings?.valuesCard);
         this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, options.dataViews[0]);
         this.target.innerHTML = ""; // Clear previous content
         const dataView = options.dataViews && options.dataViews[0];
@@ -123,6 +126,19 @@ export class Visual implements IVisual {
         table.style.borderCollapse = 'collapse';
         table.style.tableLayout = 'fixed'; // Keep strict column sizing
         table.className = 'custom-hierarchy-table';
+        // Get formatting settings for values and header
+        const valuesSettings = this.formattingSettings?.valuesCard;
+        const headerSettings = this.formattingSettings?.headerCard;
+
+        // Helper to build font style string
+        function getFontStyle(settings) {
+            let style = '';
+            if (settings?.bold?.value) style += 'font-weight: bold;';
+            if (settings?.italic?.value) style += 'font-style: italic;';
+            if (settings?.underline?.value) style += 'text-decoration: underline;';
+            return style;
+        }
+
         const thead = document.createElement('thead');
         const header = document.createElement('tr');
         // Use all category display names except parentid/childid for columns
@@ -134,6 +150,15 @@ export class Visual implements IVisual {
         displayHeader.style.overflow = 'hidden';
         displayHeader.style.whiteSpace = 'nowrap';
         displayHeader.style.textOverflow = 'ellipsis';
+        // Apply header formatting to displayHeader as well
+        if (headerSettings) {
+            displayHeader.style.fontFamily = headerSettings.fontFamily?.value || 'Segoe UI';
+            displayHeader.style.fontSize = (headerSettings.fontSize?.value || 12) + 'px';
+            displayHeader.style.color = headerSettings.textColor?.value?.value || '#000';
+            displayHeader.style.background = headerSettings.backgroundColor?.value?.value || '#fff';
+            displayHeader.style.fontWeight = headerSettings.bold?.value ? 'bold' : 'normal';
+            displayHeader.style.textAlign = headerSettings.horizontalAlignment?.value || 'left';
+        }
         header.appendChild(displayHeader);
         // For the last data field header, set a fixed width (e.g. 50px) instead of 1px or blank, so it doesn't stretch or collapse, and whitespace will appear to the right if the table is narrower than the component
         allHeaders.forEach((name, i) => {
@@ -145,6 +170,15 @@ export class Visual implements IVisual {
                 th.style.whiteSpace = 'nowrap';
                 th.style.textOverflow = 'ellipsis';
                 th.style.width = '120px'; // Set a reasonable default width for all columns
+                // Remove italic and underline from header formatting
+                if (headerSettings) {
+                    th.style.fontFamily = headerSettings.fontFamily?.value || 'Segoe UI';
+                    th.style.fontSize = (headerSettings.fontSize?.value || 12) + 'px';
+                    th.style.color = headerSettings.textColor?.value?.value || '#000';
+                    th.style.background = headerSettings.backgroundColor?.value?.value || '#fff';
+                    th.style.fontWeight = headerSettings.bold?.value ? 'bold' : 'normal';
+                    th.style.textAlign = headerSettings.horizontalAlignment?.value || 'left';
+                }
                 header.appendChild(th);
             }
         });
@@ -210,18 +244,84 @@ export class Visual implements IVisual {
             applyColumnWidths(table, self.columnWidths);
         }
 
-        // Modified renderNode to support expand/collapse
+        // Get image size from formatting settings
+        let imageHeight = this.formattingSettings?.dataPointCard?.imageHeight?.value;
+        let imageWidth = this.formattingSettings?.dataPointCard?.imageWidth?.value;
+        // Set default values if not set
+        if (imageHeight === undefined) imageHeight = 20;
+        if (imageWidth === undefined) imageWidth = 20;
+        // Sync logic: if height was changed (height != width), and width was last set to default or matches previous height, sync width to height
+        if (imageHeight !== imageWidth && (imageWidth === 100 || imageWidth === 40 || imageWidth === undefined)) {
+            imageWidth = imageHeight;
+        }
+
+        // --- CONDITIONAL FORMATTING: Populate column input as manual text field instead of dropdown ---
+        // Remove dynamic dropdown logic, just use the value as a string input
+        // cfCard.column is now a TextInput, not an ItemDropdown
+        // (You must also update settings.ts and capabilities.json accordingly)
+
+        // --- CONDITIONAL FORMATTING: Highlight row if it matches ---
+        const cfCard = this.formattingSettings?.conditionalFormattingCard;
+        function isNumberLike(x: any) {
+            return x !== null && x !== undefined && !isNaN(Number(x));
+        }
+        function rowMatchesCondition(row: any): boolean {
+            if (!cfCard || cfCard.enable.value !== true || !cfCard.column.value || !cfCard.operator.value || !cfCard.value.value) return false;
+            // Use normalized column name for matching
+            let col = cfCard.column.value ? String(cfCard.column.value) : "";
+            let actualCol = allHeaders.find(h => h.trim().toLowerCase() === col.trim().toLowerCase());
+            if (!actualCol) return false;
+            // Accept operator as a string (case-insensitive, supports symbols and words)
+            const opRaw = cfCard.operator.value ? String(cfCard.operator.value.value).trim().toLowerCase() : "";
+            const val = cfCard.value.value;
+            const cell = row[actualCol];
+            if (cell === undefined || cell === null) return false;
+            // Support all data types: boolean, number, string
+            // Try to coerce both cell and val to boolean, number, or string for comparison
+            const isBool = (v: any) => typeof v === 'boolean' || v === 'true' || v === 'false';
+            const toBool = (v: any) => v === true || v === 'true';
+            const isNum = (v: any) => !isNaN(Number(v)) && v !== '' && v !== null && v !== undefined;
+            switch (opRaw) {
+                case "equals":
+                    if (isBool(cell) && isBool(val)) return toBool(cell) === toBool(val);
+                    if (isNum(cell) && isNum(val)) return Number(cell) === Number(val);
+                    return String(cell) === String(val);
+                case "notequals":
+                    if (isBool(cell) && isBool(val)) return toBool(cell) !== toBool(val);
+                    if (isNum(cell) && isNum(val)) return Number(cell) !== Number(val);
+                    return String(cell) !== String(val);
+                case "contains":
+                    return String(cell).toLowerCase().includes(String(val).toLowerCase());
+                case "notcontains":
+                    return !String(cell).toLowerCase().includes(String(val).toLowerCase());
+                case "greaterthan":
+                    return isNum(cell) && isNum(val) && Number(cell) > Number(val);
+                case "lessthan":
+                    return isNum(cell) && isNum(val) && Number(cell) < Number(val);
+                case "greaterthanorequal":
+                    return isNum(cell) && isNum(val) && Number(cell) >= Number(val);
+                case "lessthanorequal":
+                    return isNum(cell) && isNum(val) && Number(cell) <= Number(val);
+                default:
+                    return false;
+            }
+        }
+
+        // Modified renderNode to support conditional formatting
         const renderNode = (node, level = 0) => {
             const isGroup = node.children && node.children.length > 0;
-            // const isExpanded = expandedState[node.childid] !== false; // COMMENT OUT expand/collapse
             node.groupRows.forEach((row, rowIdx) => {
                 const tr = document.createElement('tr');
+                // CONDITIONAL FORMATTING: Highlight row if it matches
+                const highlight = rowMatchesCondition(row) ? (cfCard?.color?.value?.value || '#FFFF00') : null;
+                // Display cell
                 const tdDisplay = document.createElement('td');
                 tdDisplay.style.paddingLeft = `${level * 24 + 8}px`;
                 tdDisplay.style.overflow = 'hidden';
                 tdDisplay.style.whiteSpace = 'nowrap';
                 tdDisplay.style.textOverflow = 'ellipsis';
                 tdDisplay.title = row.displayvalue;
+                if (highlight) tdDisplay.style.background = highlight;
                 // --- Expand/collapse button or spacer (always rendered for alignment) ---
                 /*
                 if (isGroup && rowIdx === 0) {
@@ -240,44 +340,41 @@ export class Visual implements IVisual {
                     tdDisplay.appendChild(toggleBtn);
                 } else
                 */
-                if (isGroup) {
-                    // Spacer for alignment if not first row in group
-                    const btnSpacer = document.createElement('span');
-                    btnSpacer.style.display = 'inline-block';
-                    btnSpacer.style.width = '16px';
-                    btnSpacer.style.height = '16px';
-                    btnSpacer.style.marginRight = '2px';
-                    tdDisplay.appendChild(btnSpacer);
-                } else if (level > 0) {
-                    // For non-group indented rows, add a spacer
-                    const btnSpacer = document.createElement('span');
-                    btnSpacer.style.display = 'inline-block';
-                    btnSpacer.style.width = '16px';
-                    btnSpacer.style.height = '16px';
-                    btnSpacer.style.marginRight = '2px';
-                    tdDisplay.appendChild(btnSpacer);
-                }
+ 
                 // --- L icon or spacer (always rendered for alignment) ---
                 if (rowIdx === 0 && level > 0) {
+                    // --- L icon for hierarchy ---
+                    const iconSize = this.formattingSettings?.hierarchyIconCard?.hierarchyIconSize?.value || 16;
+                    const iconColor = this.formattingSettings?.hierarchyIconCard?.hierarchyIconColor?.value?.value || '#000000';
                     const lIcon = document.createElement('span');
                     lIcon.style.display = 'inline-block';
                     lIcon.style.verticalAlign = 'middle';
-                    lIcon.style.width = '16px';
-                    lIcon.style.height = '16px';
+                    lIcon.style.width = iconSize + 'px';
+                    lIcon.style.height = iconSize + 'px';
                     lIcon.style.marginRight = '4px';
-                    lIcon.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" style="display:block"><path d="M4 0 v12 h8" stroke="#444" stroke-width="2" fill="none"/></svg>`;
+                    lIcon.innerHTML = `<svg width="${iconSize}" height="${iconSize}" viewBox="0 0 16 16" style="display:block"><path d="M4 0 v12 h8" stroke="${iconColor}" stroke-width="2" fill="none"/></svg>`;
                     tdDisplay.appendChild(lIcon);
                 } else if (level > 0) {
                     // Spacer for alignment if not first row in group
+                    const iconSize = this.formattingSettings?.hierarchyIconCard?.hierarchyIconSize?.value || 16;
                     const lSpacer = document.createElement('span');
                     lSpacer.style.display = 'inline-block';
-                    lSpacer.style.width = '16px';
-                    lSpacer.style.height = '16px';
+                    lSpacer.style.width = iconSize + 'px';
+                    lSpacer.style.height = iconSize + 'px';
                     lSpacer.style.marginRight = '4px';
                     tdDisplay.appendChild(lSpacer);
                 }
                 // --- Render display value as text (or hyperlink if you want, see previous requests) ---
-                tdDisplay.appendChild(document.createTextNode(row.displayvalue));
+                const displayText = document.createElement('span');
+                displayText.textContent = row.displayvalue;
+                tdDisplay.appendChild(displayText);
+                if (valuesSettings) {
+                    tdDisplay.style.setProperty('font-family', valuesSettings.fontFamily?.value || 'Segoe UI', 'important');
+                    tdDisplay.style.setProperty('font-size', (valuesSettings.fontSize?.value || 10) + 'px', 'important');
+                    tdDisplay.style.setProperty('font-weight', valuesSettings.bold?.value ? 'bold' : 'normal', 'important');
+                    tdDisplay.style.setProperty('color', valuesSettings.textColor?.value?.value || '#000', 'important');
+                    tdDisplay.style.setProperty('background', valuesSettings.backgroundColor?.value?.value || '#fff', 'important');
+                }
                 tr.appendChild(tdDisplay);
                 allHeaders.forEach((name, i) => {
                     if (name !== displayValueCat.source.displayName) {
@@ -287,18 +384,57 @@ export class Visual implements IVisual {
                         td.style.textOverflow = 'ellipsis';
                         td.style.width = '120px';
                         td.title = row[name];
+                        if (highlight) td.style.background = highlight;
+                        if (valuesSettings) {
+                            td.style.setProperty('font-family', valuesSettings.fontFamily?.value || 'Segoe UI', 'important');
+                            td.style.setProperty('font-size', (valuesSettings.fontSize?.value || 10) + 'px', 'important');
+                            td.style.setProperty('font-weight', valuesSettings.bold?.value ? 'bold' : 'normal', 'important');
+                            td.style.setProperty('color', valuesSettings.textColor?.value?.value || '#000', 'important');
+                            td.style.setProperty('background', valuesSettings.backgroundColor?.value?.value || '#fff', 'important');
+                        }
                         // --- Render as image if value looks like a base64 image ---
                         if (typeof row[name] === 'string' && row[name].match(/^data:image\/(png|jpeg|jpg|gif|svg\+xml);base64,/)) {
                             const img = document.createElement('img');
                             img.src = row[name];
                             img.alt = name;
-                            img.style.maxWidth = '100px';
-                            img.style.maxHeight = '40px';
                             img.style.display = 'block';
                             img.style.margin = '0 auto';
+                            img.style.maxWidth = imageWidth + 'px';
+                            img.style.maxHeight = imageHeight + 'px';
+                            img.width = imageWidth;
+                            img.height = imageHeight;
                             td.appendChild(img);
+                        } else if (typeof row[name] === 'string' && row[name].match(/^(https?:\/\/|www\.)[\w\-]+(\.[\w\-]+)+([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?$/)) {
+                            // Render as clickable link with icon and label
+                            const a = document.createElement('a');
+                            const url = row[name].startsWith('http') ? row[name] : 'http://' + row[name];
+                            a.href = url;
+                            a.style.textDecoration = 'none';
+                            a.style.display = 'inline-flex';
+                            a.style.alignItems = 'center';
+                            a.style.cursor = 'pointer';
+                            // SVG link icon
+                            const linkIcon = document.createElement('span');
+                            linkIcon.innerHTML = `<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 13a5 5 0 0 1 7 7l-3 3a5 5 0 0 1-7-7\"/><path d=\"M14 11a5 5 0 0 0-7-7l-3 3a5 5 0 0 0 7 7\"/></svg>`;
+                            linkIcon.style.marginRight = '4px';
+                            a.appendChild(linkIcon);
+                            const textSpan = document.createElement('span');
+                            textSpan.textContent = 'Open Link';
+                            a.appendChild(textSpan);
+                            a.onclick = (e) => {
+                                e.preventDefault();
+                                if (this.host && this.host.launchUrl) {
+                                    this.host.launchUrl(url);
+                                } else {
+                                    window.open(url, '_blank');
+                                }
+                            };
+                            td.appendChild(a);
                         } else {
-                            td.textContent = row[name];
+                            // Normal text value
+                            const valueSpan = document.createElement('span');
+                            valueSpan.textContent = row[name];
+                            td.appendChild(valueSpan);
                         }
                         tr.appendChild(td);
                     }

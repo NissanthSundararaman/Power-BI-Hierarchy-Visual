@@ -27,6 +27,7 @@
 "use strict";
 
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
+import powerbi from "powerbi-visuals-api";
 
 import FormattingSettingsCard = formattingSettings.SimpleCard;
 import FormattingSettingsSlice = formattingSettings.Slice;
@@ -36,39 +37,179 @@ import FormattingSettingsModel = formattingSettings.Model;
  * Data Point Formatting Card
  */
 class DataPointCardSettings extends FormattingSettingsCard {
-    defaultColor = new formattingSettings.ColorPicker({
-        name: "defaultColor",
-        displayName: "Default color",
-        value: { value: "" }
+    imageHeight = new formattingSettings.NumUpDown({
+        name: "imageHeight",
+        displayName: "Image Height (px)",
+        value: 40
     });
 
-    showAllDataPoints = new formattingSettings.ToggleSwitch({
-        name: "showAllDataPoints",
-        displayName: "Show all",
-        value: true
-    });
-
-    fill = new formattingSettings.ColorPicker({
-        name: "fill",
-        displayName: "Fill",
-        value: { value: "" }
-    });
-
-    fillRule = new formattingSettings.ColorPicker({
-        name: "fillRule",
-        displayName: "Color saturation",
-        value: { value: "" }
-    });
-
-    fontSize = new formattingSettings.NumUpDown({
-        name: "fontSize",
-        displayName: "Text Size",
-        value: 12
+    imageWidth = new formattingSettings.NumUpDown({
+        name: "imageWidth",
+        displayName: "Image Width (px)",
+        value: 40
     });
 
     name: string = "dataPoint";
-    displayName: string = "Data colors";
-    slices: Array<FormattingSettingsSlice> = [this.defaultColor, this.showAllDataPoints, this.fill, this.fillRule, this.fontSize];
+    displayName: string = "Image Size";
+    slices: Array<FormattingSettingsSlice> = [
+        this.imageHeight,
+        this.imageWidth
+    ];
+}
+
+class ValuesCardSettings extends FormattingSettingsCard {
+    fontFamily = new formattingSettings.FontPicker({
+        name: "valuesFontFamily",
+        displayName: "Font",
+        value: "Segoe UI"
+    });
+    fontSize = new formattingSettings.NumUpDown({
+        name: "valuesFontSize",
+        displayName: "Font Size",
+        value: 10
+    });
+    bold = new formattingSettings.ToggleSwitch({
+        name: "valuesBold",
+        displayName: "Bold",
+        value: false
+    });
+    textColor = new formattingSettings.ColorPicker({
+        name: "valuesTextColor",
+        displayName: "Text color",
+        value: { value: "#000000" }
+    });
+    backgroundColor = new formattingSettings.ColorPicker({
+        name: "valuesBackgroundColor",
+        displayName: "Background color",
+        value: { value: "#FFFFFF" }
+    });
+    name: string = "values";
+    displayName: string = "Values";
+    slices: Array<FormattingSettingsSlice> = [
+        this.fontFamily,
+        this.fontSize,
+        this.bold,
+        this.textColor,
+        this.backgroundColor
+    ];
+}
+
+class HeaderCardSettings extends FormattingSettingsCard {
+    fontFamily = new formattingSettings.FontPicker({
+        name: "headerFontFamily",
+        displayName: "Font",
+        value: "Segoe UI"
+    });
+    fontSize = new formattingSettings.NumUpDown({
+        name: "headerFontSize",
+        displayName: "Font Size",
+        value: 12
+    });
+    bold = new formattingSettings.ToggleSwitch({
+        name: "headerBold",
+        displayName: "Bold",
+        value: true
+    });
+    textColor = new formattingSettings.ColorPicker({
+        name: "headerTextColor",
+        displayName: "Text color",
+        value: { value: "#000000" }
+    });
+    backgroundColor = new formattingSettings.ColorPicker({
+        name: "headerBackgroundColor",
+        displayName: "Background color",
+        value: { value: "#FFFFFF" }
+    });
+    horizontalAlignment = new formattingSettings.AlignmentGroup({
+        name: "headerAlignment",
+        displayName: "Horizontal alignment",
+        mode: powerbi.visuals.AlignmentGroupMode.Horizonal,
+        value: "left"
+    });
+    name: string = "header";
+    displayName: string = "Column header";
+    slices: Array<FormattingSettingsSlice> = [
+        this.fontFamily,
+        this.fontSize,
+        this.bold,
+        this.textColor,
+        this.backgroundColor,
+        this.horizontalAlignment
+    ];
+}
+
+/**
+ * Hierarchy Icon Formatting Card
+ */
+class HierarchyIconCardSettings extends FormattingSettingsCard {
+    hierarchyIconSize = new formattingSettings.NumUpDown({
+        name: "hierarchyIconSize",
+        displayName: "Icon Size (px)",
+        value: 16
+    });
+    hierarchyIconColor = new formattingSettings.ColorPicker({
+        name: "hierarchyIconColor",
+        displayName: "Icon Color",
+        value: { value: "#000000" }
+    });
+    name: string = "hierarchyIcon";
+    displayName: string = "Hierarchy icon";
+    slices: Array<FormattingSettingsSlice> = [
+        this.hierarchyIconSize,
+        this.hierarchyIconColor
+    ];
+}
+
+/**
+ * Conditional Formatting Card
+ */
+class ConditionalFormattingCardSettings extends FormattingSettingsCard {
+    enable = new formattingSettings.ToggleSwitch({
+        name: "enable",
+        displayName: "Enable Conditional Formatting",
+        value: false
+    });
+    column = new formattingSettings.TextInput({
+        name: "column",
+        displayName: "Column Name",
+        value: "",
+        placeholder: "Enter column name as shown in table header"
+    });
+    operator = new formattingSettings.ItemDropdown({
+        name: "operator",
+        displayName: "Operator",
+        items: [
+            { value: "equals", displayName: "Equals" },
+            { value: "notequals", displayName: "Not Equals" },
+            { value: "contains", displayName: "Contains" },
+            { value: "notcontains", displayName: "Not Contains" },
+            { value: "greaterthan", displayName: "> (Greater Than)" },
+            { value: "lessthan", displayName: "< (Less Than)" },
+            { value: "greaterthanorequal", displayName: ">= (Greater Than or Equal)" },
+            { value: "lessthanorequal", displayName: "<= (Less Than or Equal)" }
+        ],
+        value: { value: "equals", displayName: "Equals" }
+    });
+    value = new formattingSettings.TextInput({
+        name: "value",
+        displayName: "Value",
+        value: "",
+        placeholder: "Enter value to match"
+    });
+    color = new formattingSettings.ColorPicker({
+        name: "color",
+        displayName: "Highlight Color",
+        value: { value: "#FFFF00" }
+    });
+    name: string = "conditionalFormatting";
+    displayName: string = "Conditional Formatting";
+    slices: Array<FormattingSettingsSlice> = [
+        this.enable,
+        this.column,
+        this.operator,
+        this.value,
+        this.color
+    ];
 }
 
 /**
@@ -78,6 +219,15 @@ class DataPointCardSettings extends FormattingSettingsCard {
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     // Create formatting settings model formatting cards
     dataPointCard = new DataPointCardSettings();
-
-    cards = [this.dataPointCard];
+    valuesCard = new ValuesCardSettings();
+    headerCard = new HeaderCardSettings();
+    hierarchyIconCard = new HierarchyIconCardSettings();
+    conditionalFormattingCard = new ConditionalFormattingCardSettings();
+    cards = [
+        this.dataPointCard,
+        this.valuesCard,
+        this.headerCard,
+        this.hierarchyIconCard,
+        this.conditionalFormattingCard
+    ];
 }

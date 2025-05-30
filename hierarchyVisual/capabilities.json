@@ -23,41 +23,83 @@
     ],
     "objects": {
         "dataPoint": {
+            "displayName": "Image Size",
             "properties": {
-                "defaultColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
+                "imageHeight": {
+                    "type": { "numeric": true }
                 },
-                "showAllDataPoints": {
+                "imageWidth": {
+                    "type": { "numeric": true }
+                }
+            }
+        },
+        "values": {
+            "displayName": "Values",
+            "properties": {
+                "valuesFontFamily": { "type": { "text": true } },
+                "valuesFontSize": { "type": { "numeric": true } },
+                "valuesBold": { "type": { "bool": true } },
+                "valuesTextColor": { "type": { "fill": { "solid": { "color": true } } } },
+                "valuesBackgroundColor": { "type": { "fill": { "solid": { "color": true } } } }
+            }
+        },
+        "header": {
+            "displayName": "Column header",
+            "properties": {
+                "headerFontFamily": { "type": { "text": true } },
+                "headerFontSize": { "type": { "numeric": true } },
+                "headerBold": { "type": { "bool": true } },
+                "headerTextColor": { "type": { "fill": { "solid": { "color": true } } } },
+                "headerBackgroundColor": { "type": { "fill": { "solid": { "color": true } } } },
+                "headerAlignment": {
                     "type": {
-                        "bool": true
+                        "enumeration": [
+                            { "value": "left", "displayName": "Left" },
+                            { "value": "center", "displayName": "Center" },
+                            { "value": "right", "displayName": "Right" }
+                        ]
                     }
+                }
+            }
+        },
+        "hierarchyIcon": {
+            "displayName": "Hierarchy icon",
+            "properties": {
+                "hierarchyIconSize": { "type": { "numeric": true } },
+                "hierarchyIconColor": { "type": { "fill": { "solid": { "color": true } } } }
+            }
+        },
+        "conditionalFormatting": {
+            "displayName": "Conditional Formatting",
+            "properties": {
+                "enable": {
+                    "displayName": "Enable Conditional Formatting",
+                    "type": { "bool": true }
                 },
-                "fill": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
+                "column": {
+                    "displayName": "Column Name",
+                    "type": { "text": true }
                 },
-                "fillRule": {
-                    "type": {
-                        "fill": {}
-                    }
+                "operator": {
+                    "displayName": "Operator",
+                    "type": { "enumeration": [
+                        { "value": "equals", "displayName": "Equals" },
+                        { "value": "notequals", "displayName": "Not Equals" },
+                        { "value": "contains", "displayName": "Contains" },
+                        { "value": "notcontains", "displayName": "Not Contains" },
+                        { "value": "greaterthan", "displayName": "> (Greater Than)" },
+                        { "value": "lessthan", "displayName": "< (Less Than)" },
+                        { "value": "greaterthanorequal", "displayName": ">= (Greater Than or Equal)" },
+                        { "value": "lessthanorequal", "displayName": "<= (Less Than or Equal)" }
+                    ] }
                 },
-                 "fontSize": {
-                    "type": {
-                        "formatting": {
-                            "fontSize": true
-                        }
-                    }
+                "value": {
+                    "displayName": "Value",
+                    "type": { "text": true }
+                },
+                "color": {
+                    "displayName": "Highlight Color",
+                    "type": { "fill": { "solid": { "color": true } } }
                 }
             }
         }

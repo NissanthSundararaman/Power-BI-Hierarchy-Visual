@@ -8,6 +8,7 @@ export declare class Visual implements IVisual {
     private formattingSettings;
     private formattingSettingsService;
     private columnWidths;
+    private host;
     constructor(options: VisualConstructorOptions);
     update(options: VisualUpdateOptions): void;
     /**
