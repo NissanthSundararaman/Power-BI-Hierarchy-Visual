@@ -194,7 +194,7 @@ class ConditionalFormattingCardSettings extends FormattingSettingsCard {
         name: "value",
         displayName: "Value",
         value: "",
-        placeholder: "Enter value to match"
+        placeholder: "Enter value to match (supports string, number, boolean)"
     });
     color = new formattingSettings.ColorPicker({
         name: "color",
@@ -213,9 +213,9 @@ class ConditionalFormattingCardSettings extends FormattingSettingsCard {
 }
 
 /**
-* visual settings model class
-*
-*/
+ * visual settings model class
+ *
+ */
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     // Create formatting settings model formatting cards
     dataPointCard = new DataPointCardSettings();

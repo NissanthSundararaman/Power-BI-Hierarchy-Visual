@@ -57,9 +57,9 @@ declare class ConditionalFormattingCardSettings extends FormattingSettingsCard {
     slices: Array<FormattingSettingsSlice>;
 }
 /**
-* visual settings model class
-*
-*/
+ * visual settings model class
+ *
+ */
 export declare class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard: DataPointCardSettings;
     valuesCard: ValuesCardSettings;

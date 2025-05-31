@@ -118,14 +118,20 @@ export class Visual implements IVisual {
         container.style.height = '100%';
         container.style.maxHeight = '100%';
         container.style.width = '100%';
-        // Enable horizontal scroll for wide tables
         container.style.whiteSpace = 'nowrap';
+        container.style.position = 'relative'; // Ensure stacking context for sticky
+
         const table = document.createElement('table');
-        // Remove table width so it doesn't stretch to fill the container
         table.style.width = 'auto';
         table.style.borderCollapse = 'collapse';
-        table.style.tableLayout = 'fixed'; // Keep strict column sizing
+        table.style.tableLayout = 'fixed';
         table.className = 'custom-hierarchy-table';
+
+        table.style.margin = '0';
+        table.style.padding = '0';
+
+        table.style.background = '#fff';
+
         // Get formatting settings for values and header
         const valuesSettings = this.formattingSettings?.valuesCard;
         const headerSettings = this.formattingSettings?.headerCard;
@@ -146,10 +152,13 @@ export class Visual implements IVisual {
         const displayHeader = document.createElement('th');
         displayHeader.textContent = displayValueCat.source.displayName;
         displayHeader.className = 'custom-table-header';
-        displayHeader.style.width = '50px'; // Set default width
+        displayHeader.style.width = '50px';
         displayHeader.style.overflow = 'hidden';
         displayHeader.style.whiteSpace = 'nowrap';
         displayHeader.style.textOverflow = 'ellipsis';
+        displayHeader.style.position = 'sticky';
+        displayHeader.style.top = '0';
+        displayHeader.style.zIndex = '2'; // Ensure header stays above body
         // Apply header formatting to displayHeader as well
         if (headerSettings) {
             displayHeader.style.fontFamily = headerSettings.fontFamily?.value || 'Segoe UI';
@@ -169,7 +178,10 @@ export class Visual implements IVisual {
                 th.style.overflow = 'hidden';
                 th.style.whiteSpace = 'nowrap';
                 th.style.textOverflow = 'ellipsis';
-                th.style.width = '120px'; // Set a reasonable default width for all columns
+                th.style.width = '120px';
+                th.style.position = 'sticky';
+                th.style.top = '0';
+                th.style.zIndex = '2';
                 // Remove italic and underline from header formatting
                 if (headerSettings) {
                     th.style.fontFamily = headerSettings.fontFamily?.value || 'Segoe UI';
@@ -265,43 +277,99 @@ export class Visual implements IVisual {
         function isNumberLike(x: any) {
             return x !== null && x !== undefined && !isNaN(Number(x));
         }
+        function isBooleanLike(x: any): boolean {
+            if (typeof x === 'boolean') return true;
+            if (typeof x === 'number') return x === 1 || x === 0;
+            if (typeof x === 'string') {
+                const v = x.trim().toLowerCase();
+                return v === 'true' || v === 'false' || v === 'yes' || v === 'no' || v === '1' || v === '0';
+            }
+            return false;
+        }
+        function parseBoolean(x: any): boolean | undefined {
+            if (typeof x === 'boolean') return x;
+            if (typeof x === 'number') return x === 1;
+            if (typeof x === 'string') {
+                const v = x.trim().toLowerCase();
+                if (v === 'true' || v === 'yes' || v === '1') return true;
+                if (v === 'false' || v === 'no' || v === '0') return false;
+            }
+            return undefined;
+        }
         function rowMatchesCondition(row: any): boolean {
             if (!cfCard || cfCard.enable.value !== true || !cfCard.column.value || !cfCard.operator.value || !cfCard.value.value) return false;
             // Use normalized column name for matching
             let col = cfCard.column.value ? String(cfCard.column.value) : "";
+            // Debug: log allHeaders and col
+            console.log("[CF] allHeaders:", allHeaders, "col:", col);
             let actualCol = allHeaders.find(h => h.trim().toLowerCase() === col.trim().toLowerCase());
-            if (!actualCol) return false;
+            if (!actualCol) {
+                console.log("[CF] No matching column found for:", col, "in", allHeaders);
+                return false;
+            }
             // Accept operator as a string (case-insensitive, supports symbols and words)
             const opRaw = cfCard.operator.value ? String(cfCard.operator.value.value).trim().toLowerCase() : "";
             const val = cfCard.value.value;
             const cell = row[actualCol];
-            if (cell === undefined || cell === null) return false;
-            // Support all data types: boolean, number, string
-            // Try to coerce both cell and val to boolean, number, or string for comparison
-            const isBool = (v: any) => typeof v === 'boolean' || v === 'true' || v === 'false';
-            const toBool = (v: any) => v === true || v === 'true';
-            const isNum = (v: any) => !isNaN(Number(v)) && v !== '' && v !== null && v !== undefined;
+            // Debug: log row, actualCol, cell, val, opRaw
+            console.log("[CF] row:", row, "actualCol:", actualCol, "cell:", cell, "val:", val, "opRaw:", opRaw);
+            // --- Fix: handle whitespace and case for column names and boolean values ---
+            // For boolean columns, Power BI may store as true/false (boolean) or 'true'/'false' (string)
+            // For string columns, trim and lowercase for comparison
+            // For number columns, ensure both are numbers
+            // Try boolean comparison first, but also allow string 'true'/'false' to match boolean true/false
+            if (isBooleanLike(cell) && isBooleanLike(val)) {
+                const cellBool = parseBoolean(cell);
+                const valBool = parseBoolean(val);
+                if (cellBool === undefined || valBool === undefined) return false;
+                // Always use boolean comparison for equals/notequals
+                switch (opRaw) {
+                    case "equals":
+                        return cellBool === valBool;
+                    case "notequals":
+                        return cellBool !== valBool;
+                    default:
+                        // Optionally, allow string contains/notcontains for boolean columns as fallback
+                        if (typeof cell === 'string' && typeof val === 'string') {
+                            if (opRaw === 'contains') return cell.trim().toLowerCase().includes(val.trim().toLowerCase());
+                            if (opRaw === 'notcontains') return !cell.trim().toLowerCase().includes(val.trim().toLowerCase());
+                        }
+                        return false;
+                }
+            }
+            // Then try number comparison
+            if (isNumberLike(cell) && isNumberLike(val)) {
+                const cellNum = Number(cell);
+                const valNum = Number(val);
+                switch (opRaw) {
+                    case "equals":
+                        return cellNum === valNum;
+                    case "notequals":
+                        return cellNum !== valNum;
+                    case "greaterthan":
+                        return cellNum > valNum;
+                    case "lessthan":
+                        return cellNum < valNum;
+                    case "greaterthanorequal":
+                        return cellNum >= valNum;
+                    case "lessthanorequal":
+                        return cellNum <= valNum;
+                    default:
+                        return false;
+                }
+            }
+            // Fallback to string comparison (case-insensitive, trimmed)
+            const cellStr = String(cell).trim().toLowerCase();
+            const valStr = String(val).trim().toLowerCase();
             switch (opRaw) {
                 case "equals":
-                    if (isBool(cell) && isBool(val)) return toBool(cell) === toBool(val);
-                    if (isNum(cell) && isNum(val)) return Number(cell) === Number(val);
-                    return String(cell) === String(val);
+                    return cellStr === valStr;
                 case "notequals":
-                    if (isBool(cell) && isBool(val)) return toBool(cell) !== toBool(val);
-                    if (isNum(cell) && isNum(val)) return Number(cell) !== Number(val);
-                    return String(cell) !== String(val);
+                    return cellStr !== valStr;
                 case "contains":
-                    return String(cell).toLowerCase().includes(String(val).toLowerCase());
+                    return cellStr.includes(valStr);
                 case "notcontains":
-                    return !String(cell).toLowerCase().includes(String(val).toLowerCase());
-                case "greaterthan":
-                    return isNum(cell) && isNum(val) && Number(cell) > Number(val);
-                case "lessthan":
-                    return isNum(cell) && isNum(val) && Number(cell) < Number(val);
-                case "greaterthanorequal":
-                    return isNum(cell) && isNum(val) && Number(cell) >= Number(val);
-                case "lessthanorequal":
-                    return isNum(cell) && isNum(val) && Number(cell) <= Number(val);
+                    return !cellStr.includes(valStr);
                 default:
                     return false;
             }
@@ -313,7 +381,15 @@ export class Visual implements IVisual {
             node.groupRows.forEach((row, rowIdx) => {
                 const tr = document.createElement('tr');
                 // CONDITIONAL FORMATTING: Highlight row if it matches
-                const highlight = rowMatchesCondition(row) ? (cfCard?.color?.value?.value || '#FFFF00') : null;
+                let highlight = null;
+                if (rowMatchesCondition(row)) {
+                    // Use color from conditional formatting card, fallback to red if not set
+                    highlight = cfCard && cfCard.color && cfCard.color.value && cfCard.color.value.value ? cfCard.color.value.value : '#FF0000';
+                }
+                if (highlight) {
+                    tr.style.background = highlight;
+                    tr.style.setProperty('background-color', highlight, 'important'); // Force override
+                }
                 // Display cell
                 const tdDisplay = document.createElement('td');
                 tdDisplay.style.paddingLeft = `${level * 24 + 8}px`;
@@ -321,26 +397,10 @@ export class Visual implements IVisual {
                 tdDisplay.style.whiteSpace = 'nowrap';
                 tdDisplay.style.textOverflow = 'ellipsis';
                 tdDisplay.title = row.displayvalue;
-                if (highlight) tdDisplay.style.background = highlight;
-                // --- Expand/collapse button or spacer (always rendered for alignment) ---
-                /*
-                if (isGroup && rowIdx === 0) {
-                    const toggleBtn = document.createElement('span');
-                    toggleBtn.style.display = 'inline-block';
-                    toggleBtn.style.width = '16px';
-                    toggleBtn.style.height = '16px';
-                    toggleBtn.style.marginRight = '2px';
-                    toggleBtn.style.cursor = 'pointer';
-                    toggleBtn.style.userSelect = 'none';
-                    toggleBtn.textContent = isExpanded ? '[-]' : '[+]';
-                    toggleBtn.onclick = (e) => {
-                        expandedState[node.childid] = !isExpanded;
-                        renderTable();
-                    };
-                    tdDisplay.appendChild(toggleBtn);
-                } else
-                */
- 
+                // Apply highlight to display cell first, before value formatting
+                if (highlight) {
+                    tdDisplay.style.setProperty('background', highlight, 'important');
+                }
                 // --- L icon or spacer (always rendered for alignment) ---
                 if (rowIdx === 0 && level > 0) {
                     // --- L icon for hierarchy ---
@@ -375,6 +435,10 @@ export class Visual implements IVisual {
                     tdDisplay.style.setProperty('color', valuesSettings.textColor?.value?.value || '#000', 'important');
                     tdDisplay.style.setProperty('background', valuesSettings.backgroundColor?.value?.value || '#fff', 'important');
                 }
+                // Re-apply highlight after value formatting to ensure it is not overridden
+                if (highlight) {
+                    tdDisplay.style.setProperty('background', highlight, 'important');
+                }
                 tr.appendChild(tdDisplay);
                 allHeaders.forEach((name, i) => {
                     if (name !== displayValueCat.source.displayName) {
@@ -384,13 +448,20 @@ export class Visual implements IVisual {
                         td.style.textOverflow = 'ellipsis';
                         td.style.width = '120px';
                         td.title = row[name];
-                        if (highlight) td.style.background = highlight;
+                        // Apply highlight to data cell first, before value formatting
+                        if (highlight) {
+                            td.style.setProperty('background', highlight, 'important');
+                        }
                         if (valuesSettings) {
                             td.style.setProperty('font-family', valuesSettings.fontFamily?.value || 'Segoe UI', 'important');
                             td.style.setProperty('font-size', (valuesSettings.fontSize?.value || 10) + 'px', 'important');
                             td.style.setProperty('font-weight', valuesSettings.bold?.value ? 'bold' : 'normal', 'important');
                             td.style.setProperty('color', valuesSettings.textColor?.value?.value || '#000', 'important');
                             td.style.setProperty('background', valuesSettings.backgroundColor?.value?.value || '#fff', 'important');
+                        }
+                        // Re-apply highlight after value formatting to ensure it is not overridden
+                        if (highlight) {
+                            td.style.setProperty('background', highlight, 'important');
                         }
                         // --- Render as image if value looks like a base64 image ---
                         if (typeof row[name] === 'string' && row[name].match(/^data:image\/(png|jpeg|jpg|gif|svg\+xml);base64,/)) {
