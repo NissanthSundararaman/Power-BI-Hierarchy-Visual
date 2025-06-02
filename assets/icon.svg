@@ -1,0 +1,16 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#222" stroke-width="12">
+    <!-- Top left node -->
+    <rect x="60" y="44" width="40" height="40" />
+    <!-- Vertical line connecting to branches -->
+    <line x1="80" y1="84" x2="80" y2="200" />
+    <!-- Horizontal branch to Top Right node -->
+    <line x1="80" y1="128" x2="180" y2="128" />
+    <!-- Top Right node -->
+    <rect x="180" y="108" width="40" height="40" />
+    <!-- Horizontal branch to Bottom Right node -->
+    <line x1="80" y1="200" x2="180" y2="200" />
+    <!-- Bottom Right node -->
+    <rect x="180" y="180" width="40" height="40" />
+  </g>
+</svg>
